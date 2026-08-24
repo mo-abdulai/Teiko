@@ -1,6 +1,6 @@
 # Teiko Technical Assessment
 
-I am analyzing immune-cell population data from clinical-trial samples using a reproducible SQLite-backed Python pipeline and an interactive Streamlit dashboard. The current pipeline validates and normalizes `cell-count.csv` into SQLite, calculates immune-cell relative frequencies, runs responder/non-responder statistical comparisons, creates Plotly boxplots, and runs the Part 4 baseline subset analysis from the relational database. The full dashboard remains planned for a later phase.
+I am analyzing immune-cell population data from clinical-trial samples using a reproducible SQLite-backed Python pipeline and an interactive Streamlit dashboard. The current pipeline validates and normalizes `cell-count.csv` into SQLite, calculates immune-cell relative frequencies, runs responder/non-responder statistical comparisons, creates Plotly boxplots, runs the Part 4 baseline subset analysis from the relational database, and presents the results in a local Streamlit dashboard.
 
 ## Assessment Goals
 
@@ -262,12 +262,14 @@ teiko-technical/
 |   |-- database.py
 |   |-- queries.py
 |   |-- analysis.py
+|   |-- visualization.py
 |   `-- statistics.py
 |-- outputs/
 |   `-- .gitkeep
 `-- tests/
     |-- __init__.py
     |-- test_loader.py
+    |-- test_dashboard.py
     |-- test_frequencies.py
     |-- test_queries.py
     `-- test_statistics.py
@@ -313,7 +315,13 @@ The pipeline currently:
 
 ### `make dashboard`
 
-Starts my Streamlit dashboard. The current dashboard is a minimal placeholder while implementation is in progress.
+Starts the implemented Streamlit dashboard:
+
+```bash
+streamlit run dashboard.py
+```
+
+The dashboard expects the pipeline outputs to exist. If they are missing, it shows a clear prompt to run `make pipeline`.
 
 ## Outputs
 
@@ -336,7 +344,7 @@ Static PNG plot export is not generated because Plotly HTML export satisfies the
 
 ## Dashboard
 
-My intended Streamlit dashboard sections are:
+The Streamlit dashboard has four sections:
 
 ```text
 Overview
@@ -345,13 +353,17 @@ Treatment Response
 Baseline Cohort
 ```
 
-I plan to use interactive filters and Plotly visualizations.
+The Overview section derives top-level KPIs and sample distributions from SQLite. Cell Frequencies loads `outputs/relative_frequencies.csv` and provides population/sample filtering, an overall distribution boxplot, a selected-sample composition chart, and an interactive table.
 
-Dashboard: _To be added after deployment._
+The Treatment Response section presents the Part 3 target cohort, primary subject-level comparison, baseline-only comparison, Mann-Whitney U results, Benjamini-Hochberg adjusted p-values, significance interpretation, and responder/non-responder boxplots. In the current dataset, no immune-cell populations were statistically significant after correction.
+
+The Baseline Cohort section presents the Part 4 baseline filter, baseline sample KPIs, project sample counts, response subject counts, sex subject counts, a filterable baseline sample table, and the final B-cell answer. The final B-cell metric is explicitly shown as all sample types and all treatment types, not PBMC/miraclib-only.
+
+Dashboard: Run locally or in GitHub Codespaces with `make dashboard`.
 
 ## Testing Strategy
 
-The test suite currently covers database row-count validation, primary-key and uniqueness constraints, correct population-frequency calculations, percentages summing to approximately 100% for every sample, SQL cohort filtering, correct handling of null response values, Part 4 sample-vs-subject counting semantics, the final B-cell average filter, subject-level response aggregation, Mann-Whitney output, Benjamini-Hochberg correction, non-significant and strong-difference statistical cases, and baseline-only filtering.
+The test suite currently covers database row-count validation, primary-key and uniqueness constraints, correct population-frequency calculations, percentages summing to approximately 100% for every sample, SQL cohort filtering, correct handling of null response values, Part 4 sample-vs-subject counting semantics, the final B-cell average filter, subject-level response aggregation, Mann-Whitney output, Benjamini-Hochberg correction, non-significant and strong-difference statistical cases, baseline-only filtering, and lightweight dashboard helper behavior.
 
 ## Design Principles
 

@@ -6,7 +6,7 @@ setup:
 pipeline:
 	python load_data.py
 	python analysis.py
-	@echo "TODO: Build the full Streamlit dashboard in a later phase."
+	@echo "Pipeline complete. Run 'make dashboard' to open the Streamlit dashboard."
 
 dashboard:
 	streamlit run dashboard.py

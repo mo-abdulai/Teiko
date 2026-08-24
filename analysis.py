@@ -5,8 +5,6 @@ from __future__ import annotations
 import sqlite3
 from pathlib import Path
 
-import plotly.express as px
-
 from src.analysis import (
     build_response_frequency_data,
     build_subject_level_response_summary,
@@ -27,11 +25,11 @@ from src.queries import (
     get_sample_ids,
 )
 from src.statistics import compare_response_groups
+from src.visualization import create_response_boxplot
 
 
 RELATIVE_FREQUENCIES_FILENAME = "relative_frequencies.csv"
 B_CELL_AVERAGE_METRIC = "melanoma_male_responder_baseline_avg_b_cell"
-RESPONSE_LABELS = {"yes": "Responder", "no": "Non-responder"}
 
 
 def _format_int(value: int) -> str:
@@ -156,26 +154,7 @@ def run_part3(
 
 
 def _write_response_boxplot(summary, output_path: Path, *, title: str) -> None:
-    plot_df = summary.copy()
-    plot_df["response_label"] = plot_df["response"].map(RESPONSE_LABELS)
-    fig = px.box(
-        plot_df,
-        x="population",
-        y="mean_percentage",
-        color="response_label",
-        points="all",
-        category_orders={
-            "population": ["b_cell", "cd8_t_cell", "cd4_t_cell", "nk_cell", "monocyte"],
-            "response_label": ["Responder", "Non-responder"],
-        },
-        labels={
-            "population": "Immune Cell Population",
-            "mean_percentage": "Relative Frequency (%)",
-            "response_label": "Treatment Response",
-        },
-        title=title,
-    )
-    fig.update_layout(boxmode="group")
+    fig = create_response_boxplot(summary, title=title)
     fig.write_html(output_path, include_plotlyjs="cdn")
 
 

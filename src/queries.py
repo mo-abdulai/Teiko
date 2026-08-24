@@ -106,6 +106,89 @@ def get_melanoma_miraclib_pbmc_cell_counts(
     )
 
 
+def get_overview_counts(connection: sqlite3.Connection) -> dict[str, int]:
+    """Return top-level dataset counts for dashboard overview KPIs."""
+    row = connection.execute(
+        """
+        SELECT
+            (SELECT COUNT(*) FROM samples) AS samples,
+            (SELECT COUNT(*) FROM subjects) AS subjects,
+            (SELECT COUNT(*) FROM projects) AS projects,
+            (SELECT COUNT(*) FROM cell_populations) AS cell_populations
+        """
+    ).fetchone()
+    return {
+        "samples": int(row[0]),
+        "subjects": int(row[1]),
+        "projects": int(row[2]),
+        "cell_populations": int(row[3]),
+    }
+
+
+def get_sample_counts_by_condition(connection: sqlite3.Connection) -> pd.DataFrame:
+    """Return sample counts grouped by subject condition."""
+    return pd.read_sql_query(
+        """
+        SELECT
+            subj.condition AS condition,
+            COUNT(s.sample_id) AS sample_count
+        FROM samples AS s
+        INNER JOIN subjects AS subj
+            ON subj.subject_id = s.subject_id
+        GROUP BY subj.condition
+        ORDER BY subj.condition
+        """,
+        connection,
+    )
+
+
+def get_sample_counts_by_treatment(connection: sqlite3.Connection) -> pd.DataFrame:
+    """Return sample counts grouped by subject treatment."""
+    return pd.read_sql_query(
+        """
+        SELECT
+            subj.treatment AS treatment,
+            COUNT(s.sample_id) AS sample_count
+        FROM samples AS s
+        INNER JOIN subjects AS subj
+            ON subj.subject_id = s.subject_id
+        GROUP BY subj.treatment
+        ORDER BY subj.treatment
+        """,
+        connection,
+    )
+
+
+def get_sample_counts_by_sample_type(connection: sqlite3.Connection) -> pd.DataFrame:
+    """Return sample counts grouped by sample type."""
+    return pd.read_sql_query(
+        """
+        SELECT
+            sample_type,
+            COUNT(sample_id) AS sample_count
+        FROM samples
+        GROUP BY sample_type
+        ORDER BY sample_type
+        """,
+        connection,
+    )
+
+
+def get_sample_counts_by_timepoint(connection: sqlite3.Connection) -> pd.DataFrame:
+    """Return sample counts grouped by treatment timepoint."""
+    return pd.read_sql_query(
+        """
+        SELECT
+            time_from_treatment_start,
+            COUNT(sample_id) AS sample_count
+        FROM samples
+        GROUP BY time_from_treatment_start
+        ORDER BY time_from_treatment_start
+        """,
+        connection,
+    )
+
+
 def get_baseline_melanoma_miraclib_pbmc_samples(
     connection: sqlite3.Connection,
 ) -> pd.DataFrame:
