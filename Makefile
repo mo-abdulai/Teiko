@@ -5,7 +5,8 @@ setup:
 
 pipeline:
 	python load_data.py
-	@echo "Analysis stages will be implemented in subsequent phases."
+	python analysis.py
+	@echo "TODO: Add Part 3 statistics and Part 4 subset analysis in later phases."
 
 dashboard:
 	streamlit run dashboard.py
