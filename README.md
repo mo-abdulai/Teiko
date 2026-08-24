@@ -1,6 +1,6 @@
-# Teiko Technical
+# Teiko Technical Assessment
 
-I am analyzing immune-cell population data from clinical-trial samples using a reproducible SQLite-backed Python pipeline and an interactive Streamlit dashboard. Phase 1 data management is implemented: `load_data.py` validates `cell-count.csv`, rebuilds `cell_counts.db`, creates the normalized SQLite schema, loads the data, and runs post-load integrity checks. The frequency analysis, responder statistics, analytical queries, and full dashboard remain planned for later phases.
+I am analyzing immune-cell population data from clinical-trial samples using a reproducible SQLite-backed Python pipeline and an interactive Streamlit dashboard. The current pipeline validates and normalizes `cell-count.csv` into SQLite, calculates immune-cell relative frequencies, and runs the Part 4 baseline subset analysis from the relational database. The responder statistical analysis and full dashboard remain planned for later phases.
 
 ## Assessment Goals
 
@@ -18,7 +18,7 @@ This creates `cell_counts.db` in the repository root. The loader is idempotent f
 
 ### Part 2 - Cell Population Frequencies
 
-For every sample, I will calculate:
+For every sample, I calculate:
 
 ```text
 total_count = sum of the five immune-cell counts
@@ -35,7 +35,7 @@ count
 percentage
 ```
 
-The dataset has 10,500 samples and 5 immune-cell populations, so this step will produce 52,500 long-format frequency rows.
+The dataset has 10,500 samples and 5 immune-cell populations, so this step produces 52,500 long-format frequency rows in `outputs/relative_frequencies.csv`.
 
 ### Part 3 - Treatment Response Analysis
 
@@ -63,27 +63,47 @@ I also plan to include a baseline-only view because measurements taken after tre
 
 ### Part 4 - Baseline Subset Analysis
 
-My target cohort is:
+This part is implemented. My baseline cohort definition is:
 
 ```text
 condition = melanoma
-sample_type = PBMC
 treatment = miraclib
+sample_type = PBMC
 time_from_treatment_start = 0
 ```
 
-I will report sample count by project, responder/non-responder subject counts, and male/female subject counts.
+For this cohort, I report:
+
+```text
+samples by project -> sample count
+response breakdown -> distinct subject count
+sex breakdown -> distinct subject count
+```
+
+The generated outputs are:
+
+```text
+outputs/baseline_samples.csv
+outputs/project_counts.csv
+outputs/response_counts.csv
+outputs/sex_counts.csv
+```
 
 The separate final calculation is:
 
 ```text
 condition = melanoma
-sex = male
+sex = M
 response = yes
 time_from_treatment_start = 0
+population = b_cell
 ```
 
-The wording requests all sample types and all treatment types, so I will not automatically apply the PBMC or miraclib filters to this final calculation.
+The wording requests all sample types and all treatment types, so I do not apply the PBMC or miraclib filters to this final calculation. The result is written to:
+
+```text
+outputs/baseline_b_cell_average.csv
+```
 
 ## Dataset
 
@@ -228,42 +248,42 @@ Installs all project dependencies.
 
 ### `make pipeline`
 
-Currently executes Phase 1 and then reports that later analysis stages are pending:
+Currently executes the implemented reproducible pipeline:
 
 ```bash
 python load_data.py
+python analysis.py
 ```
 
-It will eventually execute my complete reproducible pipeline:
+The pipeline currently:
 
 1. initialize/rebuild the SQLite database
 2. load `cell-count.csv`
 3. generate the Part 2 relative-frequency table
-4. run Part 3 responder/non-responder statistical analysis
-5. run Part 4 database subset queries
-6. generate required tables and plots
+4. run Part 4 database subset queries
+5. generate the implemented required tables
 
-This repository is currently in the initial scaffold stage, so the full pipeline is not implemented yet.
+Part 3 responder/non-responder statistical analysis and responder boxplots are not implemented yet.
+
 
 ### `make dashboard`
 
 Starts my Streamlit dashboard. The current dashboard is a minimal placeholder while implementation is in progress.
 
-## Planned Outputs
+## Outputs
 
-Expected generated artifacts include:
+Generated artifacts currently include:
 
 ```text
 outputs/relative_frequencies.csv
-outputs/statistical_results.csv
 outputs/baseline_samples.csv
 outputs/project_counts.csv
 outputs/response_counts.csv
 outputs/sex_counts.csv
-outputs/responder_boxplot.html
+outputs/baseline_b_cell_average.csv
 ```
 
-Exact filenames may be refined as I implement the pipeline.
+Planned later artifacts for Part 3 may include statistical result tables and Plotly responder visualizations.
 
 ## Dashboard
 
@@ -282,7 +302,7 @@ Dashboard: _To be added after deployment._
 
 ## Testing Strategy
 
-I plan to include tests for database row-count validation, primary-key and uniqueness constraints, correct population-frequency calculations, percentages summing to approximately 100% for every sample, correct SQL cohort filtering, correct handling of null response values, and correct Part 4 aggregations.
+The test suite currently covers database row-count validation, primary-key and uniqueness constraints, correct population-frequency calculations, percentages summing to approximately 100% for every sample, SQL cohort filtering, correct handling of null response values, Part 4 sample-vs-subject counting semantics, and the final B-cell average filter.
 
 ## Design Principles
 
