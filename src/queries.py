@@ -68,6 +68,44 @@ def get_population_names(connection: sqlite3.Connection) -> list[str]:
     return [row[0] for row in rows]
 
 
+def get_melanoma_miraclib_pbmc_cell_counts(
+    connection: sqlite3.Connection,
+) -> pd.DataFrame:
+    """Return normalized cell-count rows for the Part 3 response cohort."""
+    return pd.read_sql_query(
+        """
+        SELECT
+            subj.subject_id AS subject,
+            s.sample_id AS sample,
+            subj.condition AS condition,
+            subj.treatment AS treatment,
+            s.sample_type AS sample_type,
+            s.time_from_treatment_start AS time_from_treatment_start,
+            subj.response AS response,
+            cp.name AS population,
+            cc.count AS count
+        FROM samples AS s
+        INNER JOIN subjects AS subj
+            ON subj.subject_id = s.subject_id
+        INNER JOIN cell_counts AS cc
+            ON cc.sample_id = s.sample_id
+        INNER JOIN cell_populations AS cp
+            ON cp.population_id = cc.population_id
+        WHERE subj.condition = ?
+            AND subj.treatment = ?
+            AND s.sample_type = ?
+            AND subj.response IN (?, ?)
+        ORDER BY
+            subj.subject_id,
+            s.time_from_treatment_start,
+            s.sample_id,
+            cp.population_id
+        """,
+        connection,
+        params=("melanoma", "miraclib", "PBMC", "yes", "no"),
+    )
+
+
 def get_baseline_melanoma_miraclib_pbmc_samples(
     connection: sqlite3.Connection,
 ) -> pd.DataFrame:

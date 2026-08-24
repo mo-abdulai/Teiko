@@ -1,6 +1,6 @@
 # Teiko Technical Assessment
 
-I am analyzing immune-cell population data from clinical-trial samples using a reproducible SQLite-backed Python pipeline and an interactive Streamlit dashboard. The current pipeline validates and normalizes `cell-count.csv` into SQLite, calculates immune-cell relative frequencies, and runs the Part 4 baseline subset analysis from the relational database. The responder statistical analysis and full dashboard remain planned for later phases.
+I am analyzing immune-cell population data from clinical-trial samples using a reproducible SQLite-backed Python pipeline and an interactive Streamlit dashboard. The current pipeline validates and normalizes `cell-count.csv` into SQLite, calculates immune-cell relative frequencies, runs responder/non-responder statistical comparisons, creates Plotly boxplots, and runs the Part 4 baseline subset analysis from the relational database. The full dashboard remains planned for a later phase.
 
 ## Assessment Goals
 
@@ -39,27 +39,71 @@ The dataset has 10,500 samples and 5 immune-cell populations, so this step produ
 
 ### Part 3 - Treatment Response Analysis
 
-My target cohort is:
+This part is implemented. My target cohort is:
 
 ```text
 condition = melanoma
 treatment = miraclib
 sample_type = PBMC
-response in {yes, no}
+response = yes/no
 ```
 
-I will compare responder and non-responder relative frequencies for each immune-cell population. The dataset is longitudinal:
+I compare responder and non-responder relative frequencies for each immune-cell population. The dataset is longitudinal:
 
 ```text
 3 samples per subject
 days 0, 7, 14
 ```
 
-Because the same subjects are measured repeatedly, I will avoid automatically treating every sample as an independent observation.
+Because the same subjects are measured repeatedly, the primary test uses subject-level mean relative frequencies. For each `subject x population`, I average the available PBMC/miraclib timepoints before comparing response groups, so each subject contributes at most one primary statistical observation per population.
 
-My planned primary statistical approach is to create subject-level immune-cell frequency summaries where appropriate, compare responder and non-responder distributions with the Mann-Whitney U test, correct the five population tests using Benjamini-Hochberg multiple-testing correction, use adjusted `p < 0.05` as the statistical significance threshold, and visualize the distributions with Plotly boxplots.
+The statistical method is:
 
-I also plan to include a baseline-only view because measurements taken after treatment should not be interpreted as pre-treatment predictors when discussing potential response prediction.
+```text
+Mann-Whitney U test
+two-sided alternative
+Benjamini-Hochberg FDR correction
+adjusted p < 0.05 significance threshold
+```
+
+I also run a baseline-only secondary analysis at `time_from_treatment_start = 0` because post-treatment measurements should not be interpreted as pre-treatment predictors when discussing potential response prediction.
+
+Generated outputs:
+
+```text
+outputs/statistical_results.csv
+outputs/baseline_statistical_results.csv
+outputs/responder_boxplot.html
+outputs/baseline_responder_boxplot.html
+```
+
+I include rank-biserial correlation as a simple Mann-Whitney effect size. Positive values mean responder percentages tend to be higher than non-responder percentages; negative values mean they tend to be lower.
+
+#### Part 3 Results
+
+The target cohort contains 656 subjects, including 331 responders and 325 non-responders, with 1,968 samples across timepoints 0, 7, and 14.
+
+Primary subject-level longitudinal mean comparison:
+
+| population | responder median % | non-responder median % | median difference | p-value | adjusted p-value | significant |
+| --- | ---: | ---: | ---: | ---: | ---: | --- |
+| b_cell | 9.6714 | 9.8446 | -0.1732 | 0.3458 | 0.4322 | no |
+| cd8_t_cell | 24.8969 | 25.0097 | -0.1128 | 0.6221 | 0.6221 | no |
+| cd4_t_cell | 30.2098 | 29.8225 | 0.3873 | 0.0124 | 0.0621 | no |
+| nk_cell | 14.7397 | 14.9598 | -0.2201 | 0.1267 | 0.3169 | no |
+| monocyte | 19.7945 | 20.2768 | -0.4823 | 0.2645 | 0.4322 | no |
+
+Baseline-only comparison:
+
+| population | responder median % | non-responder median % | median difference | p-value | adjusted p-value | significant |
+| --- | ---: | ---: | ---: | ---: | ---: | --- |
+| b_cell | 9.7850 | 9.7582 | 0.0269 | 0.5485 | 0.8853 | no |
+| cd8_t_cell | 24.3957 | 24.6010 | -0.2053 | 0.5140 | 0.8853 | no |
+| cd4_t_cell | 29.6338 | 29.5305 | 0.1033 | 0.7964 | 0.8853 | no |
+| nk_cell | 14.9973 | 14.8905 | 0.1069 | 0.8853 | 0.8853 | no |
+| monocyte | 19.6056 | 20.2860 | -0.6804 | 0.2114 | 0.8853 | no |
+
+No immune-cell population is significant after Benjamini-Hochberg correction in either analysis. The unadjusted `cd4_t_cell` primary comparison is nominally small, but it does not meet the adjusted significance threshold, so I do not treat it as a statistically significant responder-associated population. These results describe group associations only; they do not prove predictive performance.
 
 ### Part 4 - Baseline Subset Analysis
 
@@ -225,7 +269,8 @@ teiko-technical/
     |-- __init__.py
     |-- test_loader.py
     |-- test_frequencies.py
-    `-- test_queries.py
+    |-- test_queries.py
+    `-- test_statistics.py
 ```
 
 Root-level orchestration scripts provide the required command-line entry points for the assessment. The `src/` package contains reusable application modules. The `outputs/` directory will hold generated analysis artifacts. The `tests/` directory will contain automated validation.
@@ -260,10 +305,10 @@ The pipeline currently:
 1. initialize/rebuild the SQLite database
 2. load `cell-count.csv`
 3. generate the Part 2 relative-frequency table
-4. run Part 4 database subset queries
-5. generate the implemented required tables
-
-Part 3 responder/non-responder statistical analysis and responder boxplots are not implemented yet.
+4. run Part 3 responder/non-responder statistical analysis
+5. generate Part 3 Plotly boxplots
+6. run Part 4 database subset queries
+7. generate the implemented required tables
 
 
 ### `make dashboard`
@@ -276,6 +321,10 @@ Generated artifacts currently include:
 
 ```text
 outputs/relative_frequencies.csv
+outputs/statistical_results.csv
+outputs/baseline_statistical_results.csv
+outputs/responder_boxplot.html
+outputs/baseline_responder_boxplot.html
 outputs/baseline_samples.csv
 outputs/project_counts.csv
 outputs/response_counts.csv
@@ -283,7 +332,7 @@ outputs/sex_counts.csv
 outputs/baseline_b_cell_average.csv
 ```
 
-Planned later artifacts for Part 3 may include statistical result tables and Plotly responder visualizations.
+Static PNG plot export is not generated because Plotly HTML export satisfies the current requirement without adding extra image-export dependencies.
 
 ## Dashboard
 
@@ -302,7 +351,7 @@ Dashboard: _To be added after deployment._
 
 ## Testing Strategy
 
-The test suite currently covers database row-count validation, primary-key and uniqueness constraints, correct population-frequency calculations, percentages summing to approximately 100% for every sample, SQL cohort filtering, correct handling of null response values, Part 4 sample-vs-subject counting semantics, and the final B-cell average filter.
+The test suite currently covers database row-count validation, primary-key and uniqueness constraints, correct population-frequency calculations, percentages summing to approximately 100% for every sample, SQL cohort filtering, correct handling of null response values, Part 4 sample-vs-subject counting semantics, the final B-cell average filter, subject-level response aggregation, Mann-Whitney output, Benjamini-Hochberg correction, non-significant and strong-difference statistical cases, and baseline-only filtering.
 
 ## Design Principles
 

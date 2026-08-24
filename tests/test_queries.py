@@ -12,6 +12,7 @@ from src.queries import (
     get_baseline_sample_counts_by_project,
     get_baseline_subject_counts_by_response,
     get_baseline_subject_counts_by_sex,
+    get_melanoma_miraclib_pbmc_cell_counts,
 )
 
 
@@ -240,3 +241,18 @@ def test_two_decimal_formatting_does_not_change_underlying_average(
 
     assert average == pytest.approx(600.0)
     assert f"{average:.2f}" == "600.00"
+
+
+def test_part3_response_cohort_excludes_missing_response_and_wrong_filters(
+    part4_connection,
+) -> None:
+    rows = get_melanoma_miraclib_pbmc_cell_counts(part4_connection)
+
+    assert set(rows["subject"]) == {"subj_yes", "subj_yes_repeat", "subj_no"}
+    assert set(rows["condition"]) == {"melanoma"}
+    assert set(rows["treatment"]) == {"miraclib"}
+    assert set(rows["sample_type"]) == {"PBMC"}
+    assert set(rows["response"]) == {"yes", "no"}
+    assert rows["sample"].nunique() == 5
+    assert set(rows["time_from_treatment_start"]) == {0, 7}
+    assert len(rows) == 25

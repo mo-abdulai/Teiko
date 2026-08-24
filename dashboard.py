@@ -7,7 +7,7 @@ def main() -> None:
     """Render the initial placeholder dashboard."""
     # TODO: Build interactive sections for overview, cell frequencies,
     # treatment response analysis, and baseline cohort queries.
-    st.title("Teiko Technical Assessment")
+    st.title("Teiko Technical")
     st.write("Dashboard implementation is in progress.")
 
 
