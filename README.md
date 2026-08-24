@@ -1,12 +1,20 @@
 # Teiko Technical
 
-I am analyzing immune-cell population data from clinical-trial samples using a reproducible SQLite-backed Python pipeline and an interactive Streamlit dashboard. The project is currently in the initial scaffold stage: the repository structure, execution targets, and implementation plan are in place, while the database loader, analysis pipeline, statistics, and full dashboard will be implemented next.
+I am analyzing immune-cell population data from clinical-trial samples using a reproducible SQLite-backed Python pipeline and an interactive Streamlit dashboard. Phase 1 data management is implemented: `load_data.py` validates `cell-count.csv`, rebuilds `cell_counts.db`, creates the normalized SQLite schema, loads the data, and runs post-load integrity checks. The frequency analysis, responder statistics, analytical queries, and full dashboard remain planned for later phases.
 
 ## Assessment Goals
 
 ### Part 1 - Data Management
 
-I will model the dataset in a relational SQLite database using a normalized schema. The root-level `load_data.py` script will initialize the database, create the schema, and load `cell-count.csv` in a reproducible way.
+The dataset is modeled in a relational SQLite database using a normalized schema. The root-level `load_data.py` script initializes the database, creates the schema, and loads `cell-count.csv` in a reproducible way.
+
+Run Phase 1 with:
+
+```bash
+python load_data.py
+```
+
+This creates `cell_counts.db` in the repository root. The loader is idempotent for this assessment phase: if the known project database already exists, it is removed and rebuilt from the source CSV.
 
 ### Part 2 - Cell Population Frequencies
 
@@ -120,48 +128,59 @@ Known dataset characteristics:
 
 A missing response does not necessarily mean a patient was a non-responder, so preserving null values avoids introducing an unsupported assumption.
 
-## Planned Database Schema
+## Implemented Database Schema
 
 ```text
 projects
 --------
-project_id PK
-project_name UNIQUE
+project_id INTEGER PRIMARY KEY
+project_name TEXT NOT NULL UNIQUE
 
 subjects
 --------
-subject_id PK
-project_id FK
-condition
-age
-sex
-treatment
-response NULLABLE
+subject_id TEXT PRIMARY KEY
+project_id INTEGER NOT NULL FK
+condition TEXT NOT NULL
+age INTEGER NOT NULL
+sex TEXT NOT NULL
+treatment TEXT NOT NULL
+response TEXT NULLABLE
 
 samples
 -------
-sample_id PK
-subject_id FK
-sample_name UNIQUE
-sample_type
-time_from_treatment_start
+sample_id TEXT PRIMARY KEY
+subject_id TEXT NOT NULL FK
+sample_type TEXT NOT NULL
+time_from_treatment_start INTEGER NOT NULL
 
 cell_populations
 ----------------
-population_id PK
-name UNIQUE
+population_id INTEGER PRIMARY KEY
+name TEXT NOT NULL UNIQUE
 
 cell_counts
 -----------
-sample_id FK
-population_id FK
-count
+sample_id TEXT NOT NULL FK
+population_id INTEGER NOT NULL FK
+count INTEGER NOT NULL CHECK(count >= 0)
 PRIMARY KEY (sample_id, population_id)
 ```
 
+The five CSV cell-count columns are normalized into long-form `cell_counts` rows linked to `cell_populations` definitions:
+
+```text
+b_cell
+cd8_t_cell
+cd4_t_cell
+nk_cell
+monocyte
+```
+
+Missing `response` values are preserved as SQL `NULL`; they are not converted to `"no"` or a string sentinel.
+
 I am using this design because it reduces unnecessary duplication of subject-level metadata across repeated samples, models longitudinal measurements explicitly, represents immune-cell populations as data rows rather than permanent schema columns, and allows a future cell population to be added without changing the table structure. Normalized tables also support useful indexes and efficient cohort queries, and the model can scale to hundreds of projects, many thousands or millions of samples, additional cell populations, and future analytics.
 
-I may adjust the schema slightly during implementation if dataset validation shows that a field I assumed to be subject-level actually varies across samples.
+The loader validates required columns, unique sample IDs, unique `(subject, time_from_treatment_start, sample_type)` combinations, integer-compatible timepoints, numeric non-negative cell counts, non-missing subject/sample IDs, and null-aware consistency for subject-level metadata (`project`, `condition`, `age`, `sex`, `treatment`, `response`).
 
 ## Project Structure
 
@@ -209,7 +228,13 @@ Installs all project dependencies.
 
 ### `make pipeline`
 
-Will eventually execute my complete reproducible pipeline:
+Currently executes Phase 1 and then reports that later analysis stages are pending:
+
+```bash
+python load_data.py
+```
+
+It will eventually execute my complete reproducible pipeline:
 
 1. initialize/rebuild the SQLite database
 2. load `cell-count.csv`
