@@ -5,7 +5,14 @@ from __future__ import annotations
 import sqlite3
 from pathlib import Path
 
-from src.analysis import calculate_relative_frequencies, validate_relative_frequencies
+import plotly.express as px
+
+from src.analysis import (
+    build_response_frequency_data,
+    build_subject_level_response_summary,
+    calculate_relative_frequencies,
+    validate_relative_frequencies,
+)
 from src.database import DATABASE_FILENAME, connect_database, get_database_path, get_repo_root
 from src.queries import (
     get_baseline_melanoma_male_responder_b_cell_average,
@@ -15,13 +22,16 @@ from src.queries import (
     get_baseline_subject_counts_by_response,
     get_baseline_subject_counts_by_sex,
     get_cell_counts_by_sample,
+    get_melanoma_miraclib_pbmc_cell_counts,
     get_population_names,
     get_sample_ids,
 )
+from src.statistics import compare_response_groups
 
 
 RELATIVE_FREQUENCIES_FILENAME = "relative_frequencies.csv"
 B_CELL_AVERAGE_METRIC = "melanoma_male_responder_baseline_avg_b_cell"
+RESPONSE_LABELS = {"yes": "Responder", "no": "Non-responder"}
 
 
 def _format_int(value: int) -> str:
@@ -60,6 +70,117 @@ def run_part2(
     print("Validated percentage sums for all samples.")
     print(f"Wrote {output_path.relative_to(repo_root)}")
     print("")
+
+
+def run_part3(
+    connection: sqlite3.Connection, output_dir: Path, repo_root: Path
+) -> dict[str, object]:
+    """Generate Part 3 response statistical outputs and plots."""
+    print("Running Part 3: treatment response analysis...")
+    print("")
+
+    raw_counts = get_melanoma_miraclib_pbmc_cell_counts(connection)
+    response_frequencies = build_response_frequency_data(raw_counts)
+    subject_summary = build_subject_level_response_summary(response_frequencies)
+    baseline_summary = build_subject_level_response_summary(
+        response_frequencies,
+        baseline_only=True,
+    )
+
+    statistical_results = compare_response_groups(subject_summary)
+    baseline_results = compare_response_groups(baseline_summary)
+
+    statistical_results.to_csv(output_dir / "statistical_results.csv", index=False)
+    baseline_results.to_csv(
+        output_dir / "baseline_statistical_results.csv",
+        index=False,
+    )
+    _write_response_boxplot(
+        subject_summary,
+        output_dir / "responder_boxplot.html",
+        title="Subject-Level Immune-Cell Frequencies by Treatment Response",
+    )
+    _write_response_boxplot(
+        baseline_summary,
+        output_dir / "baseline_responder_boxplot.html",
+        title="Baseline Immune-Cell Frequencies by Treatment Response",
+    )
+
+    subject_counts = (
+        subject_summary[["subject", "response"]].drop_duplicates()["response"].value_counts()
+    )
+    sample_count = response_frequencies["sample"].nunique()
+    timepoints = sorted(response_frequencies["time_from_treatment_start"].unique())
+    significant = _significant_populations(statistical_results)
+    baseline_significant = _significant_populations(baseline_results)
+
+    print("Target cohort:")
+    print(f"  Subjects: {_format_int(subject_summary['subject'].nunique())}")
+    print(f"  Responders: {_format_int(int(subject_counts.get('yes', 0)))}")
+    print(f"  Non-responders: {_format_int(int(subject_counts.get('no', 0)))}")
+    print(f"  Samples: {_format_int(sample_count)}")
+    print(f"  Timepoints: {', '.join(str(int(value)) for value in timepoints)}")
+    print("")
+    print("Primary subject-level analysis:")
+    print(
+        "  Significant populations after BH correction: "
+        + (", ".join(significant) if significant else "none")
+    )
+    print("")
+    print("Baseline analysis:")
+    print(
+        "  Significant populations after BH correction: "
+        + (", ".join(baseline_significant) if baseline_significant else "none")
+    )
+    print("")
+    print(f"Wrote {(output_dir / 'statistical_results.csv').relative_to(repo_root)}")
+    print(
+        f"Wrote {(output_dir / 'baseline_statistical_results.csv').relative_to(repo_root)}"
+    )
+    print(f"Wrote {(output_dir / 'responder_boxplot.html').relative_to(repo_root)}")
+    print(
+        f"Wrote {(output_dir / 'baseline_responder_boxplot.html').relative_to(repo_root)}"
+    )
+    print("")
+
+    return {
+        "response_frequencies": response_frequencies,
+        "subject_summary": subject_summary,
+        "baseline_summary": baseline_summary,
+        "statistical_results": statistical_results,
+        "baseline_results": baseline_results,
+        "subject_counts": subject_counts.to_dict(),
+        "sample_count": sample_count,
+        "timepoints": timepoints,
+    }
+
+
+def _write_response_boxplot(summary, output_path: Path, *, title: str) -> None:
+    plot_df = summary.copy()
+    plot_df["response_label"] = plot_df["response"].map(RESPONSE_LABELS)
+    fig = px.box(
+        plot_df,
+        x="population",
+        y="mean_percentage",
+        color="response_label",
+        points="all",
+        category_orders={
+            "population": ["b_cell", "cd8_t_cell", "cd4_t_cell", "nk_cell", "monocyte"],
+            "response_label": ["Responder", "Non-responder"],
+        },
+        labels={
+            "population": "Immune Cell Population",
+            "mean_percentage": "Relative Frequency (%)",
+            "response_label": "Treatment Response",
+        },
+        title=title,
+    )
+    fig.update_layout(boxmode="group")
+    fig.write_html(output_path, include_plotlyjs="cdn")
+
+
+def _significant_populations(results) -> list[str]:
+    return results.loc[results["significant"], "population"].tolist()
 
 
 def run_part4(
@@ -238,6 +359,7 @@ def main() -> None:
     connection = connect_database(db_path)
     try:
         run_part2(connection, output_dir, repo_root)
+        run_part3(connection, output_dir, repo_root)
         run_part4(connection, output_dir, repo_root)
     finally:
         connection.close()
