@@ -49,6 +49,24 @@ def missing_required_files(repo_root: Path) -> list[Path]:
     return [path for path in paths if not path.exists()]
 
 
+def ensure_dashboard_inputs(repo_root: Path) -> list[Path]:
+    """Build missing dashboard inputs from the tracked source CSV when possible."""
+    missing_files = missing_required_files(repo_root)
+    if not missing_files:
+        return []
+
+    csv_path = repo_root / "cell-count.csv"
+    if not csv_path.exists():
+        return missing_files
+
+    import analysis as pipeline_analysis
+    import load_data
+
+    load_data.main()
+    pipeline_analysis.main()
+    return missing_required_files(repo_root)
+
+
 def significance_summary(results: pd.DataFrame) -> str:
     """Return a concise significance interpretation for a results table."""
     if results.empty or "significant" not in results.columns:
@@ -142,6 +160,15 @@ def main() -> None:
     db_path = get_database_path()
     missing_files = missing_required_files(repo_root)
 
+    if missing_files:
+        with st.spinner("Preparing dashboard inputs from cell-count.csv..."):
+            try:
+                missing_files = ensure_dashboard_inputs(repo_root)
+            except Exception as error:
+                st.error("Dashboard input generation failed.")
+                st.exception(error)
+                st.stop()
+
     st.title("Teiko Immune Cell Analytics")
     st.caption(
         "Interactive exploration of immune-cell population data from the "
@@ -157,7 +184,7 @@ def main() -> None:
         st.caption("Run `make pipeline` to rebuild the database and outputs.")
 
     if missing_files:
-        st.error("Run `make pipeline` before launching the dashboard.")
+        st.error("Pipeline outputs are missing and could not be rebuilt automatically.")
         st.write("Missing required files:")
         for path in missing_files:
             st.code(str(path.relative_to(repo_root)))
