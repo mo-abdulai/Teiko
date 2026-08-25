@@ -6,7 +6,12 @@ from pathlib import Path
 
 import pandas as pd
 
-from dashboard import metric_value, missing_required_files, significance_summary
+from dashboard import (
+    count_metric_value,
+    metric_value,
+    missing_required_files,
+    significance_summary,
+)
 from src.visualization import response_label
 
 
@@ -54,6 +59,17 @@ def test_metric_value_extracts_requested_metric() -> None:
         == "10206.15"
     )
     assert metric_value(metrics, "missing") is None
+
+
+def test_count_metric_value_formats_float_count_as_integer() -> None:
+    metrics = pd.DataFrame(
+        {
+            "metric": ["matching_baseline_samples"],
+            "value": [485.0],
+        }
+    )
+
+    assert count_metric_value(metrics, "matching_baseline_samples") == "485"
 
 
 def test_missing_required_files_reports_missing_inputs(tmp_path, monkeypatch) -> None:

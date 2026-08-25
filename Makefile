@@ -9,4 +9,4 @@ pipeline:
 	@echo "Pipeline complete. Run 'make dashboard' to open the Streamlit dashboard."
 
 dashboard:
-	streamlit run dashboard.py
+	python -m streamlit run dashboard.py
