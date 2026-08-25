@@ -82,6 +82,14 @@ def metric_value(metrics: pd.DataFrame, metric: str) -> str | None:
     return str(matches.iloc[0])
 
 
+def count_metric_value(metrics: pd.DataFrame, metric: str) -> str | None:
+    """Return a metric count formatted without a decimal point."""
+    value = metric_value(metrics, metric)
+    if value is None:
+        return None
+    return f"{int(float(value)):,}"
+
+
 @st.cache_data
 def load_csv(path: str) -> pd.DataFrame:
     """Load a CSV file with Streamlit caching."""
@@ -413,7 +421,7 @@ def render_baseline_cohort_tab(
         b_cell_average,
         "melanoma_male_responder_baseline_avg_b_cell",
     )
-    matching_samples = metric_value(b_cell_average, "matching_baseline_samples")
+    matching_samples = count_metric_value(b_cell_average, "matching_baseline_samples")
     st.metric("Average Baseline B-cell Count", b_cell_value or "Unavailable")
     st.caption(
         "Final B-cell filter: melanoma males, response = yes, time = 0, "

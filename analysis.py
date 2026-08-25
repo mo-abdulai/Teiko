@@ -5,6 +5,8 @@ from __future__ import annotations
 import sqlite3
 from pathlib import Path
 
+import plotly.io as pio
+
 from src.analysis import (
     build_response_frequency_data,
     build_subject_level_response_summary,
@@ -155,7 +157,12 @@ def run_part3(
 
 def _write_response_boxplot(summary, output_path: Path, *, title: str) -> None:
     fig = create_response_boxplot(summary, title=title)
-    fig.write_html(output_path, include_plotlyjs="cdn")
+    pio.write_html(
+        fig,
+        output_path,
+        include_plotlyjs="cdn",
+        div_id=output_path.stem.replace("_", "-"),
+    )
 
 
 def _significant_populations(results) -> list[str]:

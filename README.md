@@ -1,8 +1,22 @@
-# Teiko Technical Assessment
+# Teiko Technical
 
 I am analyzing immune-cell population data from clinical-trial samples using a reproducible SQLite-backed Python pipeline and an interactive Streamlit dashboard. The current pipeline validates and normalizes `cell-count.csv` into SQLite, calculates immune-cell relative frequencies, runs responder/non-responder statistical comparisons, creates Plotly boxplots, runs the Part 4 baseline subset analysis from the relational database, and presents the results in a local Streamlit dashboard.
 
-## Assessment Goals
+## Quick Start
+
+Live dashboard: [https://mo-abdulai-teiko-dashboard-2oljxv.streamlit.app/](https://mo-abdulai-teiko-dashboard-2oljxv.streamlit.app/)
+
+From the repository root:
+
+```bash
+make setup
+make pipeline
+make dashboard
+```
+
+`make setup` installs the Python dependencies. `make pipeline` rebuilds the SQLite database from `cell-count.csv` and regenerates the analysis outputs. `make dashboard` starts the Streamlit app with `python -m streamlit run dashboard.py`, which works in local shells and GitHub Codespaces.
+
+##  Goals
 
 ### Part 1 - Data Management
 
@@ -149,6 +163,8 @@ The wording requests all sample types and all treatment types, so I do not apply
 outputs/baseline_b_cell_average.csv
 ```
 
+The generated final B-cell average is `10206.15`.
+
 ## Dataset
 
 ```text
@@ -275,13 +291,13 @@ teiko-technical/
     `-- test_statistics.py
 ```
 
-Root-level orchestration scripts provide the required command-line entry points for the assessment. The `src/` package contains reusable application modules. The `outputs/` directory will hold generated analysis artifacts. The `tests/` directory will contain automated validation.
+Root-level orchestration scripts provide the required command-line entry points for the assessment. The `src/` package contains reusable application modules. The `outputs/` directory contains generated analysis artifacts. The `tests/` directory contains automated validation.
 
-`load_data.py` must remain at the repository root because this is required by the assessment grader.
+`load_data.py` must remain at the repository root because this is required.
 
 ## Reproducibility
 
-My intended execution workflow is:
+The execution workflow is:
 
 ```bash
 make setup
@@ -318,7 +334,7 @@ The pipeline currently:
 Starts the implemented Streamlit dashboard:
 
 ```bash
-streamlit run dashboard.py
+python -m streamlit run dashboard.py
 ```
 
 The dashboard expects the pipeline outputs to exist. If they are missing, it shows a clear prompt to run `make pipeline`.
@@ -327,22 +343,22 @@ The dashboard expects the pipeline outputs to exist. If they are missing, it sho
 
 Generated artifacts currently include:
 
-```text
-outputs/relative_frequencies.csv
-outputs/statistical_results.csv
-outputs/baseline_statistical_results.csv
-outputs/responder_boxplot.html
-outputs/baseline_responder_boxplot.html
-outputs/baseline_samples.csv
-outputs/project_counts.csv
-outputs/response_counts.csv
-outputs/sex_counts.csv
-outputs/baseline_b_cell_average.csv
-```
+- `outputs/relative_frequencies.csv`: long-format Part 2 cell-population counts and percentages.
+- `outputs/statistical_results.csv`: primary subject-level Part 3 responder/non-responder comparison.
+- `outputs/baseline_statistical_results.csv`: baseline-only Part 3 responder/non-responder comparison.
+- `outputs/responder_boxplot.html`: interactive Plotly boxplot for the primary Part 3 cohort.
+- `outputs/baseline_responder_boxplot.html`: interactive Plotly boxplot for the baseline-only cohort.
+- `outputs/baseline_samples.csv`: Part 4 baseline cohort sample-level extract.
+- `outputs/project_counts.csv`: Part 4 baseline sample counts by project.
+- `outputs/response_counts.csv`: Part 4 responder/non-responder distinct-subject counts.
+- `outputs/sex_counts.csv`: Part 4 male/female distinct-subject counts.
+- `outputs/baseline_b_cell_average.csv`: final baseline melanoma male responder B-cell average across all sample types and treatments.
 
 Static PNG plot export is not generated because Plotly HTML export satisfies the current requirement without adding extra image-export dependencies.
 
 ## Dashboard
+
+Live dashboard: [https://mo-abdulai-teiko-dashboard-2oljxv.streamlit.app/](https://mo-abdulai-teiko-dashboard-2oljxv.streamlit.app/)
 
 The Streamlit dashboard has four sections:
 
@@ -361,10 +377,14 @@ The Baseline Cohort section presents the Part 4 baseline filter, baseline sample
 
 Dashboard: Run locally or in GitHub Codespaces with `make dashboard`.
 
+## Limitations
+
+This analysis is descriptive and inferential, not a predictive machine-learning model. The responder/non-responder comparisons use non-parametric tests and subject-level summaries to avoid treating repeated longitudinal measurements as independent observations. The dashboard reads the generated local database and output files, so `make pipeline` should be run before opening it in a fresh checkout.
+
 ## Testing Strategy
 
 The test suite currently covers database row-count validation, primary-key and uniqueness constraints, correct population-frequency calculations, percentages summing to approximately 100% for every sample, SQL cohort filtering, correct handling of null response values, Part 4 sample-vs-subject counting semantics, the final B-cell average filter, subject-level response aggregation, Mann-Whitney output, Benjamini-Hochberg correction, non-significant and strong-difference statistical cases, baseline-only filtering, and lightweight dashboard helper behavior.
 
 ## Design Principles
 
-The implementation will be guided by reproducibility, separation of concerns, normalized relational modeling, SQL-first filtering where the assessment specifically asks for database queries, statistically defensible analysis, explicit generated outputs, and simple execution in GitHub Codespaces.
+The implementation is guided by reproducibility, separation of concerns, normalized relational modeling, SQL-first filtering where the it specifically asks for database queries, statistically defensible analysis, explicit generated outputs, and simple execution in GitHub Codespaces.
