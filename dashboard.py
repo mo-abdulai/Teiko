@@ -36,6 +36,22 @@ REQUIRED_OUTPUTS = [
     "baseline_b_cell_average.csv",
 ]
 
+REQUIRED_DATABASE_TABLES = {
+    "projects",
+    "subjects",
+    "samples",
+    "cell_populations",
+    "cell_counts",
+}
+
+MINIMUM_DATABASE_ROWS = {
+    "projects": 1,
+    "subjects": 1,
+    "samples": 1,
+    "cell_populations": 5,
+    "cell_counts": 5,
+}
+
 
 def expected_output_paths(repo_root: Path) -> dict[str, Path]:
     """Return expected pipeline output paths keyed by filename."""
@@ -44,9 +60,48 @@ def expected_output_paths(repo_root: Path) -> dict[str, Path]:
 
 
 def missing_required_files(repo_root: Path) -> list[Path]:
-    """Return required dashboard inputs that are currently missing."""
-    paths = [get_database_path(), *expected_output_paths(repo_root).values()]
-    return [path for path in paths if not path.exists()]
+    """Return required dashboard inputs that are missing or invalid."""
+    db_path = get_database_path()
+    paths = [*expected_output_paths(repo_root).values()]
+    missing = [path for path in paths if not path.exists()]
+    if not database_is_ready(db_path):
+        missing.insert(0, db_path)
+    return missing
+
+
+def database_is_ready(db_path: Path) -> bool:
+    """Return whether the SQLite database can satisfy dashboard queries."""
+    if not db_path.exists():
+        return False
+
+    try:
+        connection = sqlite3.connect(f"file:{db_path}?mode=ro", uri=True)
+        try:
+            tables = {
+                row[0]
+                for row in connection.execute(
+                    "SELECT name FROM sqlite_master WHERE type = 'table'"
+                ).fetchall()
+            }
+            if not REQUIRED_DATABASE_TABLES.issubset(tables):
+                return False
+
+            for table_name, minimum_rows in MINIMUM_DATABASE_ROWS.items():
+                row_count = connection.execute(
+                    f"SELECT COUNT(*) FROM {table_name}"
+                ).fetchone()[0]
+                if int(row_count) < minimum_rows:
+                    return False
+
+            if connection.execute("PRAGMA foreign_key_check").fetchall():
+                return False
+
+            get_overview_counts(connection)
+            return True
+        finally:
+            connection.close()
+    except sqlite3.Error:
+        return False
 
 
 def ensure_dashboard_inputs(repo_root: Path) -> list[Path]:
